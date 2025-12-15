@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-signin-client_id" content="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com">
+    <title>Options Wheel Tracker Pro</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.0/crypto-js.min.js"></script>
+    <style>
+        :root {
+            --color-primary: #208081;
+            --color-primary-hover: #1a6567;
+            --color-primary-active: #1a5456;
+            --color-bg: #faf8f6;
+            --color-surface: #ffffff;
+            --color-text: #1a1a1a;
+            --color-text-secondary: #666666;
+            --color-border: #e0e0e0;
+            --color-success: #22c55e;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+            --color-info: #3b82f6;
+            --spacing: 1rem;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--color-bg); color: var(--color-text); margin: 0; padding: var(--spacing); }
+        .auth-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #208081 0%, #1a6567 100%); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+        .auth-container.hidden { display: none; }
+        .auth-box { background: var(--color-surface); padding: 3rem; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 400px; width: 100%; text-align: center; }
+        .auth-box h2 { color: var(--color-primary); margin: 0 0 1rem 0; font-size: 1.8rem; }
+        .auth-box p { color: var(--color-text-secondary); margin: 0 0 2rem 0; }
+        .google-signin-wrapper { display: flex; justify-content: center; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { background: var(--color-surface); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { margin: 0; font-size: 2rem; color: var(--color-primary); }
+        .user-header { display: flex; align-items: center; gap: 1rem; background: rgba(32, 128, 129, 0.1); padding: 0.75rem 1rem; border-radius: 8px; width: 100%; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .user-info { flex: 1; text-align: left; }
+        .user-name { font-weight: 600; margin: 0; color: var(--color-text); }
+        .user-email { font-size: 0.85rem; color: var(--color-text-secondary); margin: 0; }
+        .logout-btn { padding: 0.5rem 1rem; background: var(--color-error); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+        .logout-btn:hover { background: #d32f2f; }
+        .encryption-status { font-size: 0.8rem; color: var(--color-success); text-align: center; margin-top: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+        .tab-btn { padding: 0.75rem 1.5rem; border: 2px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; border-radius: 6px; font-weight: 500; transition: all 0.2s; }
+        .tab-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+        .tab-btn:hover { border-color: var(--color-primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-section { background: var(--color-surface); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.95rem; color: var(--color-text); }
+        input, select { padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 6px; font-size: 1rem; background: var(--color-surface); color: var(--color-text); transition: border-color 0.2s; }
+        input:focus, select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(32, 128, 129, 0.1); }
+        button { padding: 0.75rem 1.5rem; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; transition: all 0.2s; }
+        button:hover { background: var(--color-primary-hover); }
+        button:active { background: var(--color-primary-active); }
+        button.secondary { background: var(--color-text-secondary); }
+        button.secondary:hover { background: #555; }
+        button.danger { background: var(--color-error); }
+        button.danger:hover { background: #d32f2f; }
+        .trades-table { width: 100%; border-collapse: collapse; background: var(--color-surface); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.9rem; }
+        .trades-table thead { background: var(--color-primary); color: white; }
+        .trades-table th, .trades-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--color-border); }
+        .trades-table tbody tr:hover { background: rgba(32, 128, 129, 0.05); }
+        .trades-table .action-btns { display: flex; gap: 0.5rem; }
+        .action-btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 4px; }
+        .action-btn.delete { background: var(--color-error); }
+        .status-badge { display: inline-block; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
+        .status-badge.open { background: rgba(59, 130, 246, 0.2); color: #1e40af; }
+        .status-badge.closed { background: rgba(34, 197, 94, 0.2); color: #15803d; }
+        .status-badge.assigned { background: rgba(245, 158, 11, 0.2); color: #92400e; }
+        .status-badge.expired { background: rgba(107, 114, 128, 0.2); color: #374151; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .summary-card { background: var(--color-surface); padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid var(--color-primary); }
+        .summary-card h3 { margin: 0 0 0.5rem 0; color: var(--color-text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-card .value { font-size: 1.8rem; font-weight: 700; color: var(--color-primary); margin: 0; }
+        .summary-card.positive .value { color: var(--color-success); }
+        .summary-card.negative .value { color: var(--color-error); }
+        .empty-state { text-align: center; padding: 2rem; color: var(--color-text-secondary); }
+        .alert { padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; }
+        .alert.show { display: block; }
+        .alert.success { background: rgba(34, 197, 94, 0.2); color: #15803d; border-left: 4px solid var(--color-success); }
+        .alert.error { background: rgba(239, 68, 68, 0.2); color: #7f1d1d; border-left: 4px solid var(--color-error); }
+        .export-import { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .stock-price-display { background: rgba(32, 128, 129, 0.1); padding: 0.75rem; border-radius: 6px; margin-top: 0.5rem; font-size: 0.9rem; }
+        .stock-price-display.loading { color: var(--color-text-secondary); }
+        .stock-price-display.error { color: var(--color-error); }
+        .stock-price-display.success { color: var(--color-success); }
+        .backtest-chart { margin-top: 1rem; padding: 1rem; background: rgba(32, 128, 129, 0.05); border-radius: 6px; }
+        .tax-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+        .tax-item { background: rgba(32, 128, 129, 0.05); padding: 1rem; border-radius: 6px; border-left: 3px solid var(--color-primary); }
+        .tax-item h4 { margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--color-text-secondary); text-transform: uppercase; }
+        .tax-item .amount { font-size: 1.5rem; font-weight: 700; color: var(--color-primary); }
+        #mainApp { display: none; }
+        #mainApp.show { display: block; }
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .trades-table { font-size: 0.8rem; }
+            .trades-table th, .trades-table td { padding: 0.5rem; }
+            .summary-grid { grid-template-columns: 1fr; }
+            h1 { font-size: 1.5rem; }
+            .tabs { gap: 0.25rem; }
+            .tab-btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
+            .user-header { flex-direction: column; text-align: center; }
+            .logout-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container" id="authContainer">
+        <div class="auth-box">
+            <h2>🔒 Secure Login</h2>
+            <p>Sign in with your Google account to protect your trading data with encryption</p>
+            <div class="google-signin-wrapper">
+                <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+                <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with"></div>
+            </div>
+            <p style="margin-top: 2rem; font-size: 0.85rem; color: var(--color-text-secondary);">
+                🔐 Your data is encrypted before leaving your browser. We use Google Sign-In for authentication only.
+            </p>
+        </div>
+    </div>
+
+    <div id="mainApp">
+        <div class="container">
+            <header>
+                <div>
+                    <h1>📊 Options Wheel Tracker Pro</h1>
+                    <p style="margin: 0.5rem 0 0 0; color: var(--color-text-secondary);">Track covered calls, CSPs, wheel strategy trades with live prices & tax tracking</p>
+                </div>
+                <div class="user-header" style="margin-top: 1.5rem;">
+                    <img id="userAvatar" class="user-avatar" src="" alt="User">
+                    <div class="user-info">
+                        <p class="user-name" id="userName"></p>
+                        <p class="user-email" id="userEmail"></p>
+                    </div>
+                    <button class="logout-btn" onclick="handleLogout()">Logout</button>
+                </div>
+                <div class="encryption-status">
+                    🔐 Your data is encrypted with AES-256. Last synced: <span id="lastSync">Never</span>
+                </div>
+            </header>
+
+            <div class="alert" id="alert"></div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+                <button class="tab-btn" data-tab="trades">Trade Log</button>
+                <button class="tab-btn" data-tab="add-trade">Add Trade</button>
+                <button class="tab-btn" data-tab="backtest">Backtest</button>
+                <button class="tab-btn" data-tab="tax">Tax Report</button>
+                <button class="tab-btn" data-tab="settings">Settings</button>
+            </div>
+
+            <div id="dashboard" class="tab-content active">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>Total Premium Collected</h3>
+                        <p class="value" id="totalPremium">$0.00</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Active Positions</h3>
+                        <p class="value" id="activePositions">0</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Closed Trades</h3>
+                        <p class="value" id="closedTrades">0</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Win Rate</h3>
+                        <p class="value" id="winRate">0%</p>
+                    </div>
+                    <div class="summary-card positive">
+                        <h3>Total Profit/Loss</h3>
+                        <p class="value" id="totalProfitLoss">$0.00</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Total ROI</h3>
+                        <p class="value" id="totalROI">0%</p>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Recent Trades</h2>
+                    <div id="recentTrades" style="overflow-x: auto;">
+                        <p class="empty-state">No trades yet. Add your first trade to get started!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="trades" class="tab-content">
+                <div class="form-section">
+                    <h2>All Trades</h2>
+                    <div id="tradesList" style="overflow-x: auto;">
+                        <p class="empty-state">No trades recorded yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="add-trade" class="tab-content">
+                <div class="form-section">
+                    <h2>Add New Trade</h2>
+                    
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Trade Type</label>
+                        <select id="tradeType" onchange="updateTradeForm()">
+                            <option value="covered-call">Covered Call (Buy stock, sell call)</option>
+                            <option value="csp">Cash-Secured Put (CSP)</option>
+                            <option value="wheel-open">Wheel Strategy - Open CSP</option>
+                            <option value="wheel-assigned">Wheel Strategy - Assigned (Call)</option>
+                            <option value="roll">Roll Position</option>
+                        </select>
+                    </div>
+
+                    <form id="tradeForm" onsubmit="addTrade(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="symbol">Stock Symbol *</label>
+                                <input type="text" id="symbol" required placeholder="e.g., TSLA" style="text-transform: uppercase;">
+                            </div>
+                            <div class="form-group">
+                                <label for="tradeDate">Trade Date *</label>
+                                <input type="date" id="tradeDate" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="strikePrice">Strike Price *</label>
+                                <input type="number" id="strikePrice" required placeholder="100.00" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="expiration">Expiration Date *</label>
+                                <input type="date" id="expiration" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="premium">Premium Per Contract *</label>
+                                <input type="number" id="premium" required placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="quantity">Quantity (Contracts) *</label>
+                                <input type="number" id="quantity" required placeholder="1" step="1" min="1" value="1">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="stockPrice">Stock Purchase Price (if CC)</label>
+                                <input type="number" id="stockPrice" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="shares">Shares Held</label>
+                                <input type="number" id="shares" placeholder="100" step="1" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="closingPrice">Closing Price (if closed)</label>
+                                <input type="number" id="closingPrice" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="contractFee">Contract Fee ($)</label>
+                                <input type="number" id="contractFee" placeholder="0.00" step="0.01" min="0" value="0">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="commissions">Commissions/Fees ($)</label>
+                                <input type="number" id="commissions" placeholder="0.00" step="0.01" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="status">Status *</label>
+                                <select id="status" required>
+                                    <option value="open">Open</option>
+                                    <option value="closed">Closed</option>
+                                    <option value="assigned">Assigned</option>
+                                    <option value="expired">Expired</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="notes">Notes</label>
+                            <input type="text" id="notes" placeholder="Optional notes about this trade">
+                        </div>
+
+                        <button type="button" onclick="fetchStockPrice()" class="secondary" style="width: 100%; margin-bottom: 1rem;">📈 Fetch Current Stock Price</button>
+                        <div id="stockPriceDisplay"></div>
+
+                        <button type="submit" style="width: 100%; margin-top: 1rem;">Add Trade</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="backtest" class="tab-content">
+                <div class="form-section">
+                    <h2>Wheel Strategy Backtest</h2>
+                    <p>Simulate different strike prices and premium collection scenarios.</p>
+                    
+                    <form id="backtestForm" onsubmit="runBacktest(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="backtestSymbol">Stock Symbol *</label>
+                                <input type="text" id="backtestSymbol" required placeholder="e.g., AAPL" style="text-transform: uppercase;">
+                            </div>
+                            <div class="form-group">
+                                <label for="backtestPrice">Current Stock Price *</label>
+                                <input type="number" id="backtestPrice" required placeholder="150.00" step="0.01" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="backtestStrike">Strike Price *</label>
+                                <input type="number" id="backtestStrike" required placeholder="155.00" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="backtestPremium">Expected Premium per Contract *</label>
+                                <input type="number" id="backtestPremium" required placeholder="2.50" step="0.01" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="backtestContracts">Number of Contracts *</label>
+                                <input type="number" id="backtestContracts" required placeholder="1" step="1" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="backtestFee">Total Fees ($)</label>
+                                <input type="number" id="backtestFee" placeholder="10.00" step="0.01" min="0" value="10">
+                            </div>
+                        </div>
+
+                        <button type="submit" style="width: 100%;">Run Backtest</button>
+                    </form>
+
+                    <div id="backtestResults"></div>
+                </div>
+            </div>
+
+            <div id="tax" class="tab-content">
+                <div class="form-section">
+                    <h2>Tax Report</h2>
+                    <p>Detailed P&L breakdown for tax tracking.</p>
+                    
+                    <div id="taxSummary"></div>
+                </div>
+            </div>
+
+            <div id="settings" class="tab-content">
+                <div class="form-section">
+                    <h2>Data Management</h2>
+                    <p>Export or import your trade data.</p>
+                    
+                    <div class="export-import">
+                        <button onclick="exportData()">📥 Export as CSV</button>
+                        <button onclick="document.getElementById('importFile').click()" class="secondary">📤 Import CSV</button>
+                        <input type="file" id="importFile" style="display: none;" accept=".csv" onchange="importData(event)">
+                    </div>
+
+                    <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--color-border);">
+
+                    <h3 style="color: var(--color-error);">Danger Zone</h3>
+                    <button onclick="confirmClearData()" class="danger">Clear All Data</button>
+                    <p style="color: var(--color-text-secondary); font-size: 0.9rem; margin-top: 1rem;">This action cannot be undone.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let trades = [];
+        const ENCRYPTION_KEY_PREFIX = 'owt_enc_';
+
+        function handleCredentialResponse(response) {
+            const base64Url = response.credential.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map((c) => {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            
+            currentUser = JSON.parse(jsonPayload);
+            showMainApp();
+            loadEncryptedData();
+        }
+
+        window.onload = function () {
+            google.accounts.id.initialize({
+                client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+                callback: handleCredentialResponse
+            });
+            google.accounts.id.renderButton(
+                document.querySelector('.google-signin-wrapper'),
+                { theme: 'outline', size: 'large' }
+            );
+        };
+
+        function showMainApp() {
+            document.getElementById('authContainer').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('show');
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userAvatar').src = currentUser.picture;
+            
+            document.getElementById('tradeDate').valueAsDate = new Date();
+            document.getElementById('expiration').valueAsDate = new Date();
+            
+            setupTabs();
+        }
+
+        function handleLogout() {
+            if (confirm('Logout and clear all data?')) {
+                currentUser = null;
+                trades = [];
+                localStorage.clear();
+                document.getElementById('authContainer').classList.remove('hidden');
+                document.getElementById('mainApp').classList.remove('show');
+                location.reload();
+            }
+        }
+
+        function generateEncryptionKey(email) {
+            return CryptoJS.SHA256(email).toString();
+        }
+
+        function encryptData(data, key) {
+            const jsonStr = JSON.stringify(data);
+            const encrypted = CryptoJS.AES.encrypt(jsonStr, key);
+            return encrypted.toString();
+        }
+
+        function decryptData(encryptedStr, key) {
+            try {
+                const decrypted = CryptoJS.AES.decrypt(encryptedStr, key);
+                const jsonStr = decrypted.toString(CryptoJS.enc.Utf8);
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function loadEncryptedData() {
+            if (!currentUser) return;
+            
+            const encryptionKey = generateEncryptionKey(currentUser.email);
+            const encryptedTrades = localStorage.getItem(ENCRYPTION_KEY_PREFIX + currentUser.email);
+            
+            if (encryptedTrades) {
+                const decryptedTrades = decryptData(encryptedTrades, encryptionKey);
+                if (decryptedTrades) {
+                    trades = decryptedTrades;
+                    document.getElementById('lastSync').textContent = new Date().toLocaleTimeString();
+                    updateDashboard();
+                    return;
+                }
+            }
+            
+            trades = [];
+            updateDashboard();
+        }
+
+        function saveEncryptedData() {
+            if (!currentUser) {
+                showAlert('Not authenticated', 'error');
+                return;
+            }
+            
+            const encryptionKey = generateEncryptionKey(currentUser.email);
+            const encryptedTrades = encryptData(trades, encryptionKey);
+            localStorage.setItem(ENCRYPTION_KEY_PREFIX + currentUser.email, encryptedTrades);
+            document.getElementById('lastSync').textContent = new Date().toLocaleTimeString();
+        }
+
+        function setupTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    e.target.classList.add('active');
+                    document.getElementById(e.target.dataset.tab).classList.add('active');
+                    if (e.target.dataset.tab === 'tax') {
+                        generateTaxReport();
+                    }
+                    updateDashboard();
+                });
+            });
+        }
+
+        function updateTradeForm() {
+            updateDashboard();
+        }
+
+        function fetchStockPrice() {
+            const symbol = document.getElementById('symbol').value.toUpperCase();
+            if (!symbol) {
+                showAlert('Please enter a stock symbol', 'error');
+                return;
+            }
+
+            const display = document.getElementById('stockPriceDisplay');
+            display.innerHTML = '<div class="stock-price-display loading">⏳ Fetching price for ' + symbol + '...</div>';
+
+            const apiKey = 'demo';
+            fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data['Global Quote'] && data['Global Quote']['05. price']) {
+                        const price = parseFloat(data['Global Quote']['05. price']);
+                        document.getElementById('closingPrice').value = price.toFixed(2);
+                        display.innerHTML = `<div class="stock-price-display success">✓ ${symbol}: $${price.toFixed(2)}</div>`;
+                    } else {
+                        display.innerHTML = '<div class="stock-price-display error">❌ Could not fetch price. Try again or enter manually.</div>';
+                    }
+                })
+                .catch(error => {
+                    display.innerHTML = '<div class="stock-price-display error">❌ API Error. Please enter price manually.</div>';
+                });
+        }
+
+        function addTrade(e) {
+            e.preventDefault();
+
+            const trade = {
+                id: Date.now(),
+                symbol: document.getElementById('symbol').value.toUpperCase(),
+                tradeType: document.getElementById('tradeType').value,
+                tradeDate: document.getElementById('tradeDate').value,
+                strikePrice: parseFloat(document.getElementById('strikePrice').value),
+                expiration: document.getElementById('expiration').value,
+                premium: parseFloat(document.getElementById('premium').value),
+                quantity: parseInt(document.getElementById('quantity').value),
+                stockPrice: parseFloat(document.getElementById('stockPrice').value) || 0,
+                shares: parseInt(document.getElementById('shares').value) || 0,
+                closingPrice: parseFloat(document.getElementById('closingPrice').value) || 0,
+                status: document.getElementById('status').value,
+                contractFee: parseFloat(document.getElementById('contractFee').value) || 0,
+                commissions: parseFloat(document.getElementById('commissions').value) || 0,
+                notes: document.getElementById('notes').value
+            };
+
+            trades.push(trade);
+            saveEncryptedData();
+
+            showAlert('Trade added and encrypted! ✓', 'success');
+            document.getElementById('tradeForm').reset();
+            document.getElementById('tradeDate').valueAsDate = new Date();
+            document.getElementById('expiration').valueAsDate = new Date();
+            document.getElementById('stockPriceDisplay').innerHTML = '';
+
+            updateDashboard();
+        }
+
+        function deleteTrade(id) {
+            if (confirm('Are you sure you want to delete this trade?')) {
+                trades = trades.filter(t => t.id !== id);
+                saveEncryptedData();
+                showAlert('Trade deleted', 'success');
+                updateDashboard();
+            }
+        }
+
+        function updateDashboard() {
+            const totalPremium = trades.reduce((sum, t) => sum + (t.premium * t.quantity * 100), 0);
+            const activeCount = trades.filter(t => t.status === 'open').length;
+            const closedCount = trades.filter(t => t.status === 'closed').length;
+
+            let profitLoss = 0;
+            let winningTrades = 0;
+
+            trades.forEach(trade => {
+                if (trade.closingPrice > 0) {
+                    const premiumCollected = trade.premium * trade.quantity * 100;
+                    let tradeProfit = premiumCollected;
+
+                    if (trade.stockPrice > 0) {
+                        const stockCost = trade.stockPrice * trade.shares;
+                        const stockProceeds = trade.closingPrice * trade.shares;
+                        tradeProfit = (stockProceeds - stockCost) + premiumCollected;
+                    }
+
+                    tradeProfit -= (trade.contractFee + trade.commissions);
+                    profitLoss += tradeProfit;
+                    if (tradeProfit > 0) winningTrades++;
+                }
+            });
+
+            const winRate = trades.length > 0 ? ((winningTrades / trades.length) * 100).toFixed(1) : 0;
+            const roi = totalPremium > 0 ? ((profitLoss / totalPremium) * 100).toFixed(1) : 0;
+
+            document.getElementById('totalPremium').textContent = '$' + totalPremium.toFixed(2);
+            document.getElementById('activePositions').textContent = activeCount;
+            document.getElementById('closedTrades').textContent = closedCount;
+            document.getElementById('winRate').textContent = winRate + '%';
+            document.getElementById('totalProfitLoss').textContent = '$' + profitLoss.toFixed(2);
+            document.getElementById('totalROI').textContent = roi + '%';
+
+            const profitCard = document.getElementById('totalProfitLoss').parentElement;
+            if (profitLoss >= 0) {
+                profitCard.classList.remove('negative');
+                profitCard.classList.add('positive');
+            } else {
+                profitCard.classList.remove('positive');
+                profitCard.classList.add('negative');
+            }
+
+            renderTrades();
+        }
+
+        function renderTrades() {
+            let recentHtml = '';
+            let allHtml = '';
+
+            const sortedTrades = [...trades].reverse();
+
+            if (sortedTrades.length === 0) {
+                recentHtml = '<p class="empty-state">No trades yet. Add your first trade to get started!</p>';
+                allHtml = '<p class="empty-state">No trades recorded yet.</p>';
+            } else {
+                const header = `<table class="trades-table"><thead><tr><th>Symbol</th><th>Type</th><th>Strike</th><th>Exp</th><th>Premium</th><th>Fees</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+
+                sortedTrades.forEach((trade, idx) => {
+                    const totalFees = trade.contractFee + trade.commissions;
+                    const row = `<tr><td><strong>${trade.symbol}</strong></td><td>${trade.tradeType.replace(/-/g, ' ')}</td><td>$${trade.strikePrice.toFixed(2)}</td><td>${trade.expiration}</td><td>$${(trade.premium * trade.quantity * 100).toFixed(2)}</td><td>$${totalFees.toFixed(2)}</td><td><span class="status-badge ${trade.status}">${trade.status}</span></td><td><div class="action-btns"><button class="action-btn delete" onclick="deleteTrade(${trade.id})">Delete</button></div></td></tr>`;
+                    allHtml += row;
+
+                    if (idx < 5) {
+                        recentHtml += row;
+                    }
+                });
+
+                recentHtml = header + recentHtml + '</tbody></table>';
+                allHtml = header + allHtml + '</tbody></table>';
+            }
+
+            document.getElementById('recentTrades').innerHTML = recentHtml;
+            document.getElementById('tradesList').innerHTML = allHtml;
+        }
+
+        function runBacktest(e) {
+            e.preventDefault();
+
+            const symbol = document.getElementById('backtestSymbol').value.toUpperCase();
+            const currentPrice = parseFloat(document.getElementById('backtestPrice').value);
+            const strikePrice = parseFloat(document.getElementById('backtestStrike').value);
+            const premium = parseFloat(document.getElementById('backtestPremium').value);
+            const contracts = parseInt(document.getElementById('backtestContracts').value);
+            const fees = parseFloat(document.getElementById('backtestFee').value);
+
+            const totalPremium = premium * contracts * 100;
+            const capitalRequired = strikePrice * contracts * 100;
+            const assignmentProfit = (strikePrice - currentPrice) * contracts * 100;
+            const expiredProfit = totalPremium - fees;
+            const assignedProfit = assignmentProfit + totalPremium - fees;
+
+            let html = `<div class="backtest-chart"><h3>Backtest Results for ${symbol}</h3><p><strong>Current Price:</strong> $${currentPrice.toFixed(2)}</p><p><strong>Strike Price:</strong> $${strikePrice.toFixed(2)}</p><p><strong>Contracts:</strong> ${contracts}</p><div class="tax-breakdown"><div class="tax-item"><h4>Capital Required</h4><div class="amount">$${capitalRequired.toFixed(2)}</div></div><div class="tax-item"><h4>Total Premium Collected</h4><div class="amount">$${totalPremium.toFixed(2)}</div></div><div class="tax-item"><h4>Premium ROI (Expires)</h4><div class="amount">${(expiredProfit / capitalRequired * 100).toFixed(2)}%</div></div></div><div class="tax-breakdown" style="margin-top: 1.5rem;"><div class="tax-item"><h4>Scenario: Stock Expires OTM</h4><div class="amount" style="color: var(--color-success);">+$${(expiredProfit).toFixed(2)}</div><p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Keep premium, no assignment</p></div><div class="tax-item"><h4>Scenario: Stock Assigned</h4><div class="amount" ${assignedProfit >= 0 ? 'style="color: var(--color-success);"' : 'style="color: var(--color-error);"'}>${assignedProfit >= 0 ? '+' : ''}$${(assignedProfit).toFixed(2)}</div><p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Stock assigned at strike price</p></div></div></div>`;
+
+            document.getElementById('backtestResults').innerHTML = html;
+        }
+
+        function generateTaxReport() {
+            let html = '<div class="tax-breakdown">';
+
+            const shortTermGains = trades.filter(t => {
+                const tradeDate = new Date(t.tradeDate);
+                const expDate = new Date(t.expiration);
+                const daysDiff = (expDate - tradeDate) / (1000 * 60 * 60 * 24);
+                return daysDiff <= 365 && t.status === 'closed';
+            });
+
+            const longTermGains = trades.filter(t => {
+                const tradeDate = new Date(t.tradeDate);
+                const expDate = new Date(t.expiration);
+                const daysDiff = (expDate - tradeDate) / (1000 * 60 * 60 * 24);
+                return daysDiff > 365 && t.status === 'closed';
+            });
+
+            let shortTermPL = 0;
+            let longTermPL = 0;
+            let totalContractFees = 0;
+            let totalCommissions = 0;
+
+            shortTermGains.forEach(trade => {
+                const premiumCollected = trade.premium * trade.quantity * 100;
+                let tradeProfit = premiumCollected;
+                if (trade.stockPrice > 0) {
+                    const stockCost = trade.stockPrice * trade.shares;
+                    const stockProceeds = trade.closingPrice * trade.shares;
+                    tradeProfit = (stockProceeds - stockCost) + premiumCollected;
+                }
+                shortTermPL += tradeProfit - (trade.contractFee + trade.commissions);
+            });
+
+            longTermGains.forEach(trade => {
+                const premiumCollected = trade.premium * trade.quantity * 100;
+                let tradeProfit = premiumCollected;
+                if (trade.stockPrice > 0) {
+                    const stockCost = trade.stockPrice * trade.shares;
+                    const stockProceeds = trade.closingPrice * trade.shares;
+                    tradeProfit = (stockProceeds - stockCost) + premiumCollected;
+                }
+                longTermPL += tradeProfit - (trade.contractFee + trade.commissions);
+            });
+
+            totalContractFees = trades.reduce((sum, t) => sum + t.contractFee, 0);
+            totalCommissions = trades.reduce((sum, t) => sum + t.commissions, 0);
+
+            html += `<div class="tax-item"><h4>Short-Term Capital Gains (≤365 days)</h4><div class="amount" ${shortTermPL >= 0 ? 'style="color: var(--color-success);"' : 'style="color: var(--color-error);"'}>${shortTermPL >= 0 ? '+' : ''}$${shortTermPL.toFixed(2)}</div><p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Trades: ${shortTermGains.length}</p></div><div class="tax-item"><h4>Long-Term Capital Gains (>365 days)</h4><div class="amount" ${longTermPL >= 0 ? 'style="color: var(--color-success);"' : 'style="color: var(--color-error);"'}>${longTermPL >= 0 ? '+' : ''}$${longTermPL.toFixed(2)}</div><p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;">Trades: ${longTermGains.length}</p></div><div class="tax-item"><h4>Total Contract Fees</h4><div class="amount" style="color: var(--color-error);">-$${totalContractFees.toFixed(2)}</div></div><div class="tax-item"><h4>Total Commissions</h4><div class="amount" style="color: var(--color-error);">-$${totalCommissions.toFixed(2)}</div></div>`;
+
+            html += '</div>';
+
+            document.getElementById('taxSummary').innerHTML = html;
+        }
+
+        function exportData() {
+            if (!currentUser) {
+                showAlert('Please login first', 'error');
+                return;
+            }
+
+            let csv = 'Symbol,Type,Trade Date,Strike Price,Expiration,Premium,Quantity,Stock Price,Shares,Closing Price,Contract Fee,Commissions,Status,Notes\n';
+
+            trades.forEach(trade => {
+                csv += `${trade.symbol},${trade.tradeType},${trade.tradeDate},${trade.strikePrice},${trade.expiration},${trade.premium},${trade.quantity},${trade.stockPrice},${trade.shares},${trade.closingPrice},${trade.contractFee},${trade.commissions},${trade.status},"${trade.notes}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `options-trades-${new Date().toISOString().split('T')[0]}-encrypted.csv`;
+            a.click();
+        }
+
+        function importData(event) {
+            if (!currentUser) {
+                showAlert('Please login first', 'error');
+                return;
+            }
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const csv = e.target.result;
+                const lines = csv.split('\n');
+                let imported = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim() === '') continue;
+
+                    const parts = lines[i].match(/("([^"]*)"|[^,]+)/g);
+                    if (!parts) continue;
+
+                    const cleanParts = parts.map(p => p.replace(/^"|"$/g, '').trim());
+                    const [symbol, type, tradeDate, strikePrice, expiration, premium, quantity, stockPrice, shares, closingPrice, contractFee, commissions, status, notes] = cleanParts;
+
+                    if (symbol && symbol !== 'Symbol') {
+                        trades.push({
+                            id: Date.now() + i,
+                            symbol: symbol,
+                            tradeType: type,
+                            tradeDate: tradeDate,
+                            strikePrice: parseFloat(strikePrice),
+                            expiration: expiration,
+                            premium: parseFloat(premium),
+                            quantity: parseInt(quantity),
+                            stockPrice: parseFloat(stockPrice) || 0,
+                            shares: parseInt(shares) || 0,
+                            closingPrice: parseFloat(closingPrice) || 0,
+                            contractFee: parseFloat(contractFee) || 0,
+                            commissions: parseFloat(commissions) || 0,
+                            status: status,
+                            notes: notes || ''
+                        });
+                        imported++;
+                    }
+                }
+
+                if (imported > 0) {
+                    saveEncryptedData();
+                    showAlert(`Imported ${imported} trades successfully! ✓ All encrypted.`, 'success');
+                    updateDashboard();
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function confirmClearData() {
+            if (confirm('Are you sure? This will delete ALL your trade data. This action cannot be undone.')) {
+                if (confirm('Click OK one more time to confirm.')) {
+                    trades = [];
+                    if (currentUser) {
+                        localStorage.removeItem(ENCRYPTION_KEY_PREFIX + currentUser.email);
+                    }
+                    showAlert('All data cleared', 'success');
+                    updateDashboard();
+                }
+            }
+        }
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+            setTimeout(() => alert.classList.remove('show'), 4000);
+        }
+    </script>
+</body>
+</html>
